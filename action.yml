@@ -1,0 +1,24 @@
+name: Deploy a Novinzo theme
+description: Build this repository's theme and deploy it to a Novinzo store, or have Novinzo check it.
+branding:
+  icon: upload-cloud
+  color: gray-dark
+inputs:
+  store:
+    description: The store's subdomain, as the dashboard shows it on Settings → Theme.
+    required: true
+  api-url:
+    description: The Novinzo API to deploy to. Set it only to deploy to another Novinzo environment, such as staging.
+    default: "https://dashboard.novinzo.com/api"
+  path:
+    description: Where the theme is in the repository.
+    default: "."
+  build:
+    description: Run the theme's `npm run build` (installing its dependencies first) before deploying or checking.
+    default: "true"
+  mode:
+    description: "`deploy` deploys the theme to the store. `check` has Novinzo check it the way a deploy does and deploys nothing, as on a pull request: problems show as annotations."
+    default: deploy
+runs:
+  using: node24
+  main: dist/index.mjs
