@@ -72,7 +72,7 @@ jobs:
 
 A store may have its theme checked 120 times an hour.
 
-To check a theme on your computer, run `npx @novinzo/theme-cli check` in it.
+To check a theme on your computer, run `npx @emergente-labs/theme-cli check` in it.
 
 ## Taking in starter releases
 
