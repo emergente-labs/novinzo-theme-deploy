@@ -1,0 +1,58 @@
+name: Deploy theme
+
+# Called by a theme repository's own deploy workflow on pushes to the branch its store
+# deploys from:
+#
+#   on:
+#     push:
+#       branches: [main]
+#   permissions:
+#     id-token: write
+#     contents: read
+#   jobs:
+#     deploy:
+#       uses: emergente-labs/novinzo-theme-deploy/.github/workflows/deploy.yml@v1
+#       with:
+#         store: ${{ vars.NOVINZO_STORE }}
+#
+# What it runs lives here, so it changes with each release of v1 and no theme repository has
+# to edit its workflow. A newer push cancels a deploy still running. The starter template
+# itself deploys nowhere.
+on:
+  workflow_call:
+    inputs:
+      store:
+        description: The store's subdomain, as the dashboard shows it on Settings → Theme.
+        type: string
+        required: true
+      api-url:
+        description: The Novinzo API. Set it only for another Novinzo environment, such as staging.
+        type: string
+        default: "https://dashboard.novinzo.com/api"
+      path:
+        description: Where the theme is in the repository.
+        type: string
+        default: "."
+      build:
+        description: Run the theme's `npm run build`, installing its dependencies first.
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    if: github.repository != 'emergente-labs/novinzo-theme-starter'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: novinzo-theme
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: emergente-labs/novinzo-theme-deploy@v1
+        with:
+          store: ${{ inputs.store }}
+          api-url: ${{ inputs.api-url }}
+          path: ${{ inputs.path }}
+          build: ${{ inputs.build }}
