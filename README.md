@@ -13,18 +13,18 @@ on:
 permissions:
   id-token: write
   contents: read
-concurrency:
-  group: novinzo-theme
-  cancel-in-progress: true
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: emergente-labs/novinzo-theme-deploy@v1
-        with:
-          store: your-store
+    uses: emergente-labs/novinzo-theme-deploy/.github/workflows/deploy.yml@v1
+    with:
+      store: ${{ vars.NOVINZO_STORE }}
 ```
+
+The workflow calls this repository's [reusable workflows](#reusable-workflows) rather than
+listing the action's steps itself, so what it runs changes with each release of `v1` and
+the theme repository never has to edit it. A job can still run the action directly
+(`uses: emergente-labs/novinzo-theme-deploy@v1` after `actions/checkout`), with the same
+inputs.
 
 The action deploys to Novinzo's API. To deploy to another Novinzo environment, such as
 staging, also set `api-url` to that environment's API.
@@ -60,14 +60,9 @@ permissions:
   contents: read
 jobs:
   check:
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: emergente-labs/novinzo-theme-deploy@v1
-        with:
-          store: ${{ vars.NOVINZO_STORE }}
-          mode: check
+    uses: emergente-labs/novinzo-theme-deploy/.github/workflows/check.yml@v1
+    with:
+      store: ${{ vars.NOVINZO_STORE }}
 ```
 
 A store may have its theme checked 120 times an hour.
@@ -94,15 +89,19 @@ release is tagged:
 - a binary file (such as an image) both changed cannot hold markers, so the theme's stays and
   the pull request lists it for you to take in the release's by hand;
 - a copy the theme changed of a file the release no longer has, and a theme file where the
-  release adds one, stay as they are and are listed too.
+  release adds one, stay as they are and are listed too;
+- of `package.json`, only `scripts` change, script by script as files do: one the theme
+  never changed becomes the release's (or is added or deleted), one it changed stays and is
+  listed. Dependencies stay the theme's, as its lockfile records them.
 
 Only releases tagged `v<major>.<minor>.<patch>` count; prerelease tags are skipped. When
 Novinzo serves another major version than `theme.json` extends, the run fails: a new major
 release's changes are taken in by hand.
 
 It then moves `extends` to the release and sets the `version` and `summary` outputs; it
-commits nothing itself. The starter's `starter-updates.yml` opens a pull request with them
-the first day Novinzo serves a new release, looking once a day:
+commits nothing itself. The reusable `starter-updates.yml` opens a pull request with them
+(closing any older one it supersedes) the first day Novinzo serves a new release, looking
+once a day:
 
 ```yaml
 name: Starter updates
@@ -115,30 +114,7 @@ permissions:
   pull-requests: write
 jobs:
   update:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - id: update
-        uses: emergente-labs/novinzo-theme-deploy@v1
-        with:
-          mode: update
-      - if: steps.update.outputs.version != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.update.outputs.version }}
-          SUMMARY: ${{ steps.update.outputs.summary }}
-        run: |
-          branch="novinzo/starter-$VERSION"
-          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
-            echo "A pull request for starter $VERSION is already open."
-            exit 0
-          fi
-          git switch --create "$branch"
-          git -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit --all --message "Take in starter $VERSION"
-          git push origin "$branch"
-          gh pr create --head "$branch" --title "Take in starter $VERSION" --body "$SUMMARY"
+    uses: emergente-labs/novinzo-theme-deploy/.github/workflows/starter-updates.yml@v1
 ```
 
 GitHub lets a workflow open pull requests only once **Settings → Actions → General →
@@ -146,5 +122,22 @@ Allow GitHub Actions to create and approve pull requests** is on. A pull request
 workflow opens does not start other workflows, so close and reopen it to run the check.
 GitHub pauses scheduled workflows in a public repository after 60 days without activity;
 re-enable it from the **Actions** tab.
+
+## Reusable workflows
+
+`.github/workflows/` holds the jobs a theme repository runs, for its own workflows to call
+with `uses: emergente-labs/novinzo-theme-deploy/.github/workflows/<file>@v1`:
+
+| Workflow | Runs | Inputs |
+| --- | --- | --- |
+| `deploy.yml` | the action, deploying | `store` (required), `api-url`, `path`, `build` |
+| `check.yml` | the action with `mode: check`, skipping pull requests from forks | `store` (required), `api-url`, `path`, `build` |
+| `starter-updates.yml` | the action with `mode: update`, and opens its pull request | `api-url`, `path` |
+
+Their inputs default as the action's do. The calling workflow grants the permissions (as in
+the examples above), names the events, and passes the store, usually from the
+`NOVINZO_STORE` repository variable. A workflow's own token may not change a workflow file,
+so keeping the steps here is what lets a release change them in every theme repository.
+None of them runs in the starter template itself.
 
 This repository is built from `apps/theme-deploy-action` in the Novinzo monorepo.

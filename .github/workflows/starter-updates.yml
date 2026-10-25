@@ -1,0 +1,71 @@
+name: Starter updates
+
+# Called by a theme repository's own workflow once a day:
+#
+#   on:
+#     schedule:
+#       - cron: "0 6 * * *"
+#     workflow_dispatch:
+#   permissions:
+#     contents: write
+#     pull-requests: write
+#   jobs:
+#     update:
+#       uses: emergente-labs/novinzo-theme-deploy/.github/workflows/starter-updates.yml@v1
+#
+# Looks for a newer starter release of the major version theme.json extends, up to the one
+# Novinzo serves, and opens a pull request taking it into the copies of the starter's files
+# the theme keeps, closing any it supersedes. GitHub lets it open pull requests only once
+# Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"
+# is on. The starter template itself is the starter, so it takes in nothing.
+on:
+  workflow_call:
+    inputs:
+      api-url:
+        description: The Novinzo API. Set it only for another Novinzo environment, such as staging.
+        type: string
+        default: "https://dashboard.novinzo.com/api"
+      path:
+        description: Where the theme is in the repository.
+        type: string
+        default: "."
+
+jobs:
+  update:
+    if: github.repository != 'emergente-labs/novinzo-theme-starter'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - id: update
+        uses: emergente-labs/novinzo-theme-deploy@v1
+        with:
+          api-url: ${{ inputs.api-url }}
+          path: ${{ inputs.path }}
+          mode: update
+      - if: steps.update.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.update.outputs.version }}
+          SUMMARY: ${{ steps.update.outputs.summary }}
+        run: |
+          branch="novinzo/starter-$VERSION"
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "A pull request for starter $VERSION is already open."
+            exit 0
+          fi
+          git switch --create "$branch"
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --all --message "Take in starter $VERSION"
+          git push --force origin "$branch"
+          gh pr create --head "$branch" --title "Take in starter $VERSION" --body "$SUMMARY"
+          # An open pull request for an earlier release changes the same copies from the same
+          # starting point; this one takes in everything it did.
+          gh pr list --state open --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"novinzo/starter-\")) | select(.headRefName != \"$branch\") | .number" |
+            while read -r number; do
+              gh pr close "$number" --delete-branch --comment "Superseded by starter $VERSION."
+            done
