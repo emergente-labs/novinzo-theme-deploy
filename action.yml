@@ -1,14 +1,14 @@
 name: Deploy a Novinzo theme
-description: Build this repository's theme and deploy it to a Novinzo store, or have Novinzo check it.
+description: Build this repository's theme and deploy it to a Novinzo store, have Novinzo check it, or take in a newer starter release.
 branding:
   icon: upload-cloud
   color: gray-dark
 inputs:
   store:
-    description: The store's subdomain, as the dashboard shows it on Settings → Theme.
-    required: true
+    description: The store's subdomain, as the dashboard shows it on Settings → Theme. Deploying and checking need it.
+    required: false
   api-url:
-    description: The Novinzo API to deploy to. Set it only to deploy to another Novinzo environment, such as staging.
+    description: The Novinzo API to deploy to, or to ask which starter release it serves. Set it only to use another Novinzo environment, such as staging.
     default: "https://dashboard.novinzo.com/api"
   path:
     description: Where the theme is in the repository.
@@ -17,8 +17,13 @@ inputs:
     description: Run the theme's `npm run build` (installing its dependencies first) before deploying or checking.
     default: "true"
   mode:
-    description: "`deploy` deploys the theme to the store. `check` has Novinzo check it the way a deploy does and deploys nothing, as on a pull request: problems show as annotations."
+    description: "`deploy` deploys the theme to the store. `check` has Novinzo check it the way a deploy does and deploys nothing, as on a pull request: problems show as annotations. `update` takes the newest starter release of the major version theme.json extends, up to the one Novinzo serves, into the theme's copies of the starter's files, for the workflow to propose as a pull request; where both changed the same lines it leaves conflict markers, which `deploy` and `check` refuse until they are resolved."
     default: deploy
+outputs:
+  version:
+    description: "With `mode: update`, the starter release the theme now extends; empty when there was none newer for it, up to the one Novinzo serves."
+  summary:
+    description: "With `mode: update`, what the update changed, as a pull request description. It lists first the files with conflict markers to resolve before merging."
 runs:
   using: node24
   main: dist/index.mjs
