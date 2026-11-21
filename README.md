@@ -1,5 +1,9 @@
 # Deploy a Novinzo theme
 
+[Novinzo](https://novinzo.com) is a free platform for selling digital and physical
+products from a store of your own, whose storefront is a Liquid theme; the developer
+docs are at [documentation.novinzo.com](https://documentation.novinzo.com).
+
 Deploys the theme in this repository to a Novinzo store on every push to the store's
 linked branch. The store owner links the repository and branch on **Settings → Theme** in
 the Novinzo dashboard; the deploy proves it runs for that repository and branch with
